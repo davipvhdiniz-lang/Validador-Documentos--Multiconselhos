@@ -1,0 +1,4 @@
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\venv\Scripts\Activate.ps1
+(venv) PS C:\Projetos\ValidadorCRF\backend>
+ streamlit run app.py
