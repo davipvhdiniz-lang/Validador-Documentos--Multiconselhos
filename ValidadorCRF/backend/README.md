@@ -1,7 +1,7 @@
-# Validador de Certidão Profissional (ValidadorCRF)
+# Validador de Certidão Profissional (ValidadorCRF-GO) 
 
 Projeto desenvolvido para o curso de ciências de dados onde foi criado um validador de documentos
-Sistema automatizado para validação de dados de solicitações e autenticação de certidões junto ao Conselho Regional de Farmácia (CRF). O sistema cruza os dados extraídos de documentos em PDF e realiza a checagem automatizada via web para garantir a conformidade dos processos.
+Sistema automatizado para validação de dados de solicitações e autenticação de certidões junto ao Conselho Regional de Farmácia (CRF-GO). O sistema cruza os dados extraídos de documentos em PDF e realiza a checagem automatizada via web para garantir a conformidade dos processos.
 
 ## 🚀 Funcionalidades
 
