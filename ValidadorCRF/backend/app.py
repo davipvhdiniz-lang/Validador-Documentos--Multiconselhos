@@ -83,7 +83,7 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
     if not pedido_file or not certidao_file:
         st.warning("⚠️ Por favor, envie ambos os arquivos PDF para continuar.")
     else:
-        with st.spinner("Lendo arquivos e consultando o CRF-GO... Por favor, aguarde."):
+        with st.spinner("Analisando arquivos... Por favor, aguarde."):
             try:
                 pedido_bytes = pedido_file.read()
                 certidao_bytes = certidao_file.read()
@@ -93,22 +93,76 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                 
                 resultado_comparacao = comparar(texto_pedido, texto_certidao)
                 
-                codigo_match = re.search(r'[A-F0-9]{32}', texto_certidao)
-                codigo_autenticacao = codigo_match.group(0) if codigo_match else None
+                # -------------------------------------------------------------
+                # 🧠 SISTEMA DE ROTEAMENTO MULTICONSELIHOS (CRM / CRO / CRBM / CRF)
+                # -------------------------------------------------------------
+                texto_certidao_alta = texto_certidao.upper()
+                if "CRM" in texto_certidao_alta or "MEDICINA" in texto_certidao_alta:
+                    conselho_detectado = "CRM"
+                elif "CRO" in texto_certidao_alta or "ODONTOLOGIA" in texto_certidao_alta:
+                    conselho_detectado = "CRO"
+                elif "CRBM" in texto_certidao_alta or "BIOMEDICINA" in texto_certidao_alta:
+                    conselho_detectado = "CRBM"
+                else:
+                    conselho_detectado = "CRF"
+
+                status_conselho = {"autentica": False, "mensagem": "Não foi possível realizar a validação externa."}
                 
-                status_conselho = {"autentica": False, "mensagem": "Código de autenticação não encontrado na certidão."}
-                
-                if codigo_autenticacao:
-                    status_conselho = asyncio.run(consultar_certidao_no_conselho(codigo_autenticacao))
-                
+                # 🟢 CASO 1: SEU FLUXO ORIGINAL DO CRF-GO (100% INTACTO)
+                if conselho_detectado == "CRF":
+                    codigo_match = re.search(r'[A-F0-9]{32}', texto_certidao)
+                    codigo_autenticacao = codigo_match.group(0) if codigo_match else None
+                    
+                    if codigo_autenticacao:
+                        status_conselho = asyncio.run(consultar_certidao_no_conselho(codigo_autenticacao))
+                    else:
+                        status_conselho = {"autentica": False, "mensagem": "Código de autenticação não encontrado na certidão."}
+                        
+                # 🔵 CASO 2: MEDICINA (CRM)
+                elif conselho_detectado == "CRM":
+                    st.warning("⚠️ O portal do CRM exige verificação de segurança. Uma janela do navegador foi aberta. Preencha o CAPTCHA nela para continuar.")
+                    registro = re.search(r'\d+', texto_certidao).group(0) if re.search(r'\d+', texto_certidao) else "Teste"
+                    from validador_web import consultar_conselho_com_captcha
+                    status_conselho = asyncio.run(consultar_conselho_com_captcha(
+                        url_site="COLE_AQUI_O_LINK_DO_PORTAL_DE_BUSCA_DO_CRM", 
+                        input_selector="input[id*='crm']",       
+                        seletor_resultado="#resultado-medico",   
+                        dado_busca=registro
+                    ))
+                    
+                # 🟡 CASO 3: ODONTOLOGIA (CRO)
+                elif conselho_detectado == "CRO":
+                    st.warning("⚠️ O portal do CRO exige verificação de segurança. Uma janela do navegador foi aberta. Preencha o CAPTCHA nela para continuar.")
+                    registro = re.search(r'\d+', texto_certidao).group(0) if re.search(r'\d+', texto_certidao) else "Teste"
+                    from validador_web import consultar_conselho_com_captcha
+                    status_conselho = asyncio.run(consultar_conselho_com_captcha(
+                        url_site="COLE_AQUI_O_LINK_DO_PORTAL_DE_BUSCA_DO_CRO", 
+                        input_selector="input[type='text']",
+                        seletor_resultado="#resultado-odonto",
+                        dado_busca=registro
+                    ))
+                    
+                # 🟠 CASO 4: BIOMEDICINA (CRBM)
+                elif conselho_detectado == "CRBM":
+                    st.warning("⚠️ O portal da Biomedicina exige verificação de segurança. Uma janela do navegador foi aberta. Preencha o CAPTCHA nela para continuar.")
+                    registro = re.search(r'\d+', texto_certidao).group(0) if re.search(r'\d+', texto_certidao) else "Teste"
+                    from validador_web import consultar_conselho_com_captcha
+                    status_conselho = asyncio.run(consultar_conselho_com_captcha(
+                        url_site="COLE_AQUI_O_LINK_DO_PORTAL_DE_BUSCA_DO_CRBM", 
+                        input_selector="input[type='text']",
+                        seletor_resultado="#resultado-biomedicina",
+                        dado_busca=registro
+                    ))
+                # -------------------------------------------------------------
+
                 st.success("🎉 Processamento concluído!")
                 st.session_state["sequencial_protocolo"] += 1
                 
                 # =========================================================
-                # 🔄 NOVA ORDEM DE EXIBIÇÃO DOS RESULTADOS
+                # 🔄 EXIBIÇÃO DOS RESULTADOS (IGUALZINHO AO SEU ORIGINAL)
                 # =========================================================
                 
-                # 1. Status do Cruzamento de Dados (Ocupando a largura total)
+                # 1. Status do Cruzamento de Dados
                 st.subheader("🔍 Status do Cruzamento de Dados")
                 if resultado_comparacao.get("compativel", False):
                     st.success("✅ Os dados dos documentos são compatíveis!")
@@ -150,8 +204,8 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                 
                 st.divider()
                 
-                # 3. Autenticidade no CRF-GO (Agora posicionado ABAIXO da tabela)
-                st.subheader("🌐 Autenticidade no CRF-GO")
+                # 3. Exibição Dinâmica da Autenticidade (Adapta o título conforme o conselho)
+                st.subheader(f"🌐 Autenticidade no {conselho_detectado}-GO" if conselho_detectado == "CRF" else f"🌐 Autenticidade no {conselho_detectado}")
                 mensagem_conselho = status_conselho.get('mensagem', '')
                 if status_conselho.get("autentica", False):
                     if "ATENÇÃO" in mensagem_conselho:

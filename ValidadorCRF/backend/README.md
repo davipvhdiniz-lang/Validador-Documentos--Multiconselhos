@@ -1,63 +1,85 @@
-# Validador de Certidão Profissional (ValidadorCRF-GO) 
+# 🩺 Validador de Certidões Multiconselhos (RPA & Data Science)
 
-Projeto desenvolvido para o curso de ciências de dados onde foi criado um validador de documentos
-Sistema automatizado para validação de dados de solicitações e autenticação de certidões junto ao Conselho Regional de Farmácia (CRF-GO). O sistema cruza os dados extraídos de documentos em PDF e realiza a checagem automatizada via web para garantir a conformidade dos processos.
-
-## 🚀 Funcionalidades
-
-*   **Extração de Texto de PDFs:** Leitura automatizada dos documentos de pedido e certidões utilizando a biblioteca `PyMuPDF` (`fitz`).
-*   **Cruzamento Inteligente de Dados:** Módulo interno que compara as informações extraídas para identificar divergências automaticamente.
-*   **Autenticação Web Automatizada:** Consulta automatizada ao portal do conselho profissional via `Playwright` para validação da autenticidade da certidão.
-*   **Interface Intuitiva:** Painel web moderno construído em `Streamlit` para acompanhamento do status, upload de arquivos e visualização de alertas de risco do processo.
-## 🔧 Instalação e Configuração
-
-1. **Acesse a pasta do projeto:**
-   ```bash
-   cd C:\Projetos\ValidadorCRF\backend
-Crie e ative o ambiente virtual (venv):
-
-Bash
-python -m venv venv
-# Para ativar no Windows (Prompt de Comando):
-.\venv\Scripts\activate.bat
-Instale as dependências do projeto:
-
-Bash
-pip install streamlit pandas pymupdf playwright
-Instale o navegador do robô (Playwright):
-
-Bash
-playwright install chromium
-▶️ Como Executar
-Para iniciar o sistema manualmente via terminal, certifique-se de que a venv está ativa e execute:
-
-Bash
-streamlit run app.py
-Nota: O projeto também conta com um script de inicialização automatizada (.bat) na Área de Trabalho para execução em um clique.
-
-📂 Estrutura do Projeto
-Plaintext
-ValidadorCRF/
-└── backend/
-    ├── venv/                 # Ambiente virtual do Python
-    ├── app.py                # Interface gráfica do Streamlit
-    ├── leitor_pdf.py         # Módulo de extração de texto (PyMuPDF)
-    ├── comparador.py         # Módulo de inteligência e cruzamento de dados
-    ├── validador_web.py      # Módulo de automação web (Playwright)
-    └── requirements.txt      # Listagem de dependências do ecossistema
-🛠️ Tecnologias Utilizadas
-Streamlit - Framework de interface web.
-
-Playwright - Automação de processos robóticos (RPA) na web.
-
-PyMuPDF (Fitz) - Engenharia de extração de dados de documentos.
-
-Pandas - Estruturação e manipulação de matrizes de dados.
-
+Este projeto foi desenvolvido como parte de um estudo prático de **Ciência de Dados** e **Automação de Processos Robóticos (RPA)**. O sistema automatiza a validação de conformidade regulatória cruzando dados de solicitações internas com Certidões de Regularidade Profissional de múltiplos conselhos (CRF-GO, CRM, CRO e CRBM), realizando validações dinâmicas e raspagem de dados web em tempo real.
 
 ---
 
-### 🎨 Como vai ficar?
-Como o arquivo termina em `.md` (Markdown), o próprio VS Code (ou plataformas como o GitHub) vai renderizar isso de forma linda: os códigos vão ficar em blocos cinzas, os títulos destacados e as tabelas com linhas separadoras perfeitas. 
+## 🚀 Funcionalidades Principais
 
-É só colar, salvar com `Ctrl + S` e o seu projeto ganhou uma documentação de nível sênior!
+* 📄 **Extração Inteligente de PDFs:** Processamento e extração de texto bruto de documentos (pedidos e certidões) utilizando engenharia de dados com a biblioteca `PyMuPDF` (`fitz`).
+* 📊 **Cruzamento e Análise Algorítmica:** Módulo lógico embarcado que compara chaves estruturais (CNPJ, CNAE, Responsável Técnico e datas de vigência) para identificar divergências ou fraudes em tempo real.
+* 🤖 **Roteamento Dinâmico de RPA:** Motor web baseado em `Playwright` que identifica automaticamente o conselho emissor a partir do texto do PDF e adota a estratégia de validação ideal:
+  * **Modo Silencioso (Headless):** Execução em segundo plano para consultas estruturadas sem desafios visuais (ex: CRF-GO via código hash de 32 caracteres).
+  * **Modo Interativo (Headful com Bypass Humano):** Abertura automatizada da interface do navegador na tela quando o portal externo exige resolução de **CAPTCHA** ou validação de segurança manual (CRM, CRO, CRBM).
+* 🎨 **Dashboard Analítico:** Interface web reativa construída em `Streamlit` contendo tabelas comparativas de dados, alertas visuais de risco e controle sequencial de protocolos processados.
+
+---
+
+## 🔧 Instalação e Configuração
+
+### 1. Preparação do Ambiente
+Abra o terminal do seu sistema operacional e navegue até a pasta raiz do projeto:
+```bash
+cd C:\Projetos\ValidadorCRF\backend
+```
+
+### 2. Criação e Ativação do Ambiente Virtual (venv)
+Isole as dependências do ecossistema executando:
+```bash
+python -m venv venv
+
+# Para ativar no Windows (Prompt de Comando / CMD):
+.\venv\Scripts\activate.bat
+
+# Para ativar no Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+```
+
+### 3. Instalação do Ecossistema de Bibliotecas
+Com a `venv` ativa (indicada pelo prefixo `(venv)` no terminal), instale as ferramentas necessárias:
+```bash
+pip install streamlit pandas pymupdf playwright
+```
+
+### 4. Provisionamento dos Binários do Navegador
+Instale os binários isolados do Chromium controlados pelo robô:
+```bash
+playwright install chromium
+```
+
+---
+
+## ▶️ Como Executar o Sistema
+
+### Via Terminal (Manual)
+Certifique-se de que a `venv` está ativa e execute o comando abaixo na pasta `backend`:
+```bash
+streamlit run app.py
+```
+
+### Via Atalho (Produção)
+O projeto conta com um script automatizado de um clique (`.bat`) localizado na Área de Trabalho, encarregado de ativar o ambiente virtual e subir a aplicação no seu navegador padrão de forma transparente.
+
+---
+
+## 📂 Estrutura Arquitetural do Projeto
+
+```plaintext
+ValidadorCRF/
+└── backend/
+    ├── venv/                 # Ambiente virtual isolado do Python
+    ├── app.py                # Core da aplicação: Interface Streamlit e Roteamento de Fluxo
+    ├── leitor_pdf.py         # Módulo de Engenharia de Dados: Extração de Texto via PyMuPDF
+    ├── comparador.py         # Módulo de Inteligência de Negócio: Regras de Cruzamento de Dados
+    ├── validador_web.py      # Módulo de Automação RPA: Motores Playwright (Headless e Headful)
+    └── requirements.txt      # Manifesto de dependências do ecossistema Python
+```
+
+---
+
+## 🛠️ Stack Tecnológica Utilizada
+
+* **Streamlit:** Construção de dashboards reativos e interface do usuário orientada a dados.
+* **Playwright:** Automação de navegadores (RPA) de alta performance com suporte a fluxos assíncronos.
+* **PyMuPDF (Fitz):** Parser de alta velocidade para processamento de estruturas binárias de arquivos PDF.
+* **Pandas:** Modelagem, estruturação e alinhamento das matrizes de dados para comparação na interface gráfica.

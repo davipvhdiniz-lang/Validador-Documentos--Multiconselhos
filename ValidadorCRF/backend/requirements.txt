@@ -2,3 +2,19 @@ cd ValidadorCRF
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv\Scripts\Activate.ps1
 (venv) PS C:\Projetos\ValidadorCRF>
 streamlit run backend\app.py
+
+# ou 
+
+# 1. Entra na pasta do seu projeto
+cd C:\Projetos\ValidadorCRF
+
+# 2. Ativa o ambiente virtual (O que você fez perfeitamente!)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv\Scripts\Activate.ps1
+  (venv) PS C:\Projetos\ValidadorCRF>
+
+# 3. ENTRA na pasta backend (O passo que faltava)
+cd backend
+
+# 4. Roda o Streamlit direto no arquivo
+streamlit run app.py
+
