@@ -3,8 +3,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv
 (venv) PS C:\Projetos\ValidadorCRF>
 streamlit run backend\app.py
 
-# ou 
 
+# Ctrl + j abre o terminal do vscode e depois digita os comandos abaixo e aperta o enter :
 # 1. Entra na pasta do seu projeto
 cd C:\Projetos\ValidadorCRF
 
