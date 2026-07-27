@@ -17,4 +17,3 @@ cd backend
 
 # 4. Roda o Streamlit direto no arquivo
 streamlit run app.py
-
