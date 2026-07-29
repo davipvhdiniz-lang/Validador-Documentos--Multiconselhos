@@ -1,44 +1,4 @@
-cd ValidadorCRF
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv\Scripts\Activate.ps1
-(venv) PS C:\Projetos\ValidadorCRF>
-streamlit run backend\app.py
-
-
-# Ctrl + j abre o terminal do vscode e depois digita os comandos abaixo e aperta o enter :
-# 1. Entra na pasta do seu projeto
-cd C:\Projetos\ValidadorCRF
-
-# 2. Ativa o ambiente virtual (O que você fez perfeitamente!)
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv\Scripts\Activate.ps1
-  (venv) PS C:\Projetos\ValidadorCRF>
-
-# 3. ENTRA na pasta backend (O passo que faltava)
-cd backend
-
-# 4. Roda o Streamlit direto no arquivo
-streamlit run app.py
-
-1. Parar o Streamlit temporariamente
-Clique dentro do terminal (onde aparecem os links do Streamlit) e aperte no seu teclado:
-
-Ctrl + C
-(A linha de comando vai liberar e ficar parecida com (venv) PS C:\Projetos\ValidadorCRF\backend>)
-
-2. Subir a nova pasta para o GitHub
-Agora digite estes três comandos, um por um, apertando Enter depois de cada um:
-
-Bash
-# 1. Adiciona os novos PDFs e a pasta Data Base para o envio
-git add .
-
-# 2. Cria a mensagem explicando o que você adicionou
-git commit -m "Feat: Adiciona pasta Data Base com PDFs de teste para o grupo"
-
-# 3. Envia os arquivos definitivamente para o repositório no GitHub
-git push origin main
-Pronto! Assim que o git push terminar de rodar, os PDFs de teste estarão disponíveis na nuvem para todo o seu grupo baixar e usar.
-
-Depois disso, se quiser colocar o sistema no ar de novo para continuar mexendo, é só digitar o comando de sempre:
-
-Bash
-streamlit run app.py
+streamlit
+pandas
+pymupdf
+playwright

@@ -17,34 +17,45 @@ Este projeto foi desenvolvido como parte de um estudo prático de Ciência de Da
 
 ---
 
-## 🔧 Instalação e Configuração
+## 🔧 Instalação e Configuração para o Grupo
 
-### 1. Preparação do Ambiente
-Abra o terminal do seu sistema operacional e navegue até a pasta raiz do projeto:
+Siga o passo a passo abaixo no seu computador para configurar o ambiente, instalar as bibliotecas de forma automática e rodar o sistema pela primeira vez.
+
+### Passo 1: Abrir o terminal no VS Code
+1. Abra a pasta do projeto `ValidadorCRF` no seu VS Code.
+2. No seu teclado, aperte as teclas **Ctrl + J** juntas. Isso vai abrir o terminal na parte de baixo da tela.
+
+### Passo 2: Preparação e Ativação do Ambiente Virtual (venv)
+1. Primeiro, navegue até a pasta raiz se já não estiver nela:
 ```bash
-cd C:\Projetos\ValidadorCRF\backend
-2. Criação e Ativação do Ambiente Virtual (venv)
-Bash
-python -m venv venv
-
-# Para ativar no Windows (Prompt de Comando / CMD):
-.\venv\Scripts\activate.bat
-
-# Para ativar no Windows (PowerShell):
-.\venv\Scripts\Activate.ps1
-3. Instalação do Ecossistema de Bibliotecas
-Com a venv ativa (indicada pelo prefixo (venv) no terminal), instale as ferramentas necessárias:
+cd C:\Projetos\ValidadorCRF
+Crie o ambiente virtual (caso ainda não tenha criado no seu PC):
 
 Bash
-pip install streamlit pandas pymupdf playwright
-4. Provisionamento dos Binários do Navegador
-Instale os binários isolados do Chromium controlados pelo robô:
+python -m venv backend\venv
+Ative a venv copiando o comando abaixo, colando no terminal e apertando Enter:
+
+Bash
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; .\backend\venv\Scripts\Activate.ps1
+Note que aparecerá o prefixo (venv) no início da linha do terminal, indicando que o ambiente está ativo.
+
+Passo 3: Entrar na pasta Backend
+Digite o comando abaixo para entrar na pasta onde estão os códigos e o arquivo de requisitos e aperte Enter:
+
+Bash
+cd backend
+Passo 4: Instalação Automática do Ecossistema de Bibliotecas
+Para instalar todas as ferramentas necessárias (streamlit, pandas, pymupdf, playwright) de uma vez só, digite o comando abaixo e aperte Enter:
+
+Bash
+pip install -r requirements.txt
+Provisione os binários isolados do navegador controlados pelo robô digitando o comando abaixo e apertando Enter:
 
 Bash
 playwright install chromium
 ▶️ Como Executar o Sistema
 Via Terminal (Manual)
-Certifique-se de que a venv está ativa e execute o comando abaixo na pasta backend:
+Certifique-se de que a venv está ativa (venv) e que você está dentro da pasta backend. Em seguida, execute o comando abaixo:
 
 Bash
 streamlit run app.py
@@ -71,11 +82,13 @@ PyMuPDF (Fitz): Analisador de alta velocidade para processamento de estruturas b
 Pandas: Modelagem, estruturação e alinhamento das matrizes de dados para comparação na interface gráfica.
 
 
-### Como salvar e subir para o GitHub:
-1. Abra o arquivo `README.md` no seu VS Code.
-2. Apague tudo o que está nele, cole o texto acima e salve (`Ctrl + S`).
-3. No terminal do VS Code, digite os comandos para subir a atualização:
+---
+
+### O que fazer agora:
+1. Salve o arquivo (`Ctrl + S`).
+2. Garanta que o seu `requirements.txt` tem apenas as 4 linhas com os nomes das bibliotecas.
+3. No terminal do VS Code, mande tudo atualizado para o GitHub digitando:
 ```bash
-git add README.md
-git commit -m "Docs: Atualiza o README original com as novas travas de segurança e conexao"
+git add README.md requirements.txt
+git commit -m "Docs: Atualiza manual com instruções detalhadas passo a passo para o grupo"
 git push origin main
