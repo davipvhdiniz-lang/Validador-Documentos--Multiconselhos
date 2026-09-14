@@ -89,11 +89,3 @@ Pandas: Processamento de Dados , Modelagem, estruturação e alinhamento das mat
 
 ---
 
-### O que fazer agora:
-1. Salve o arquivo (`Ctrl + S`).
-2. Garanta que o seu `requirements.txt` tem apenas as 4 linhas com os nomes das bibliotecas.
-3. No terminal do VS Code, mande tudo atualizado para o GitHub digitando:
-```bash
-git add README.md requirements.txt
-git commit -m "Docs: Atualiza manual com instruções detalhadas passo a passo para o grupo"
-git push origin main
