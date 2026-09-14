@@ -1,15 +1,173 @@
-import streamlit as st
+import io
 import re
-import asyncio
 import sys
+import asyncio
 import pandas as pd
+import streamlit as st
 from datetime import datetime
+
+# Bibliotecas do ReportLab para gerar o PDF
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+# Módulos internos do seu projeto
 from leitor_pdf import extrair_texto
 from comparador import comparar
 from validador_web import consultar_certidao_no_conselho
 
-# Configuração da página do Streamlit
+
+# ==============================================================================
+# FUNÇÃO GERADORA DO PDF
+# ==============================================================================
+
+def gerar_pdf_parecer(protocolo, status_compativel, divergencias, dados_pedido, dados_certidao, texto_minuta_tela="", certidao_vencida=False):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    # Estilos customizados do documento
+    style_sub = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)
+    style_corpo = ParagraphStyle('Corpo', parent=styles['Normal'], fontSize=10, leading=14)
+    style_bold = ParagraphStyle('Bold', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+
+    # 1. Cabeçalho Oficial
+    elementos.append(Paragraph("SISTEMA AUTOMATIZADO DE VALIDAÇÃO DOCUMENTAL", style_sub))
+    elementos.append(Spacer(1, 15))
+
+    # 2. Informações do Processo
+    data_emissao = datetime.now().strftime("%d/%m/%Y às %H:%M")
+    elementos.append(Paragraph(f"<b>Protocolo do Solicitante:</b> {protocolo}", style_corpo))
+    elementos.append(Paragraph(f"<b>Data da Auditoria:</b> {data_emissao}", style_corpo))
+    
+    status_str = "<font color='green'><b>COMPATÍVEL / DEFERIDO</b></font>" if status_compativel else "<font color='red'><b>INCOMPATÍVEL / REJEITADO</b></font>"
+    elementos.append(Paragraph(f"<b>Resultado do Parecer:</b> {status_str}", style_corpo))
+    elementos.append(Spacer(1, 15))
+
+    # 3. Tabela Comparativa
+    elementos.append(Paragraph("<b>Tabela Comparativa de Detalhes:</b>", style_bold))
+    elementos.append(Spacer(1, 6))
+
+    dados_tabela = [
+        ["Dado Comparado", "No Pedido", "Na Certidão"],
+        ["CNPJ", dados_pedido.get("cnpj", "Não encontrado"), dados_certidao.get("cnpj", "Não encontrado")],
+        ["Responsável Técnico", dados_pedido.get("rt", "Não encontrado"), dados_certidao.get("rt", "Não encontrado")],
+        ["Data / Validade", f"Abertura: {dados_pedido.get('data', 'N/A')}", f"Validade: {dados_certidao.get('validade', 'N/A')}"]
+    ]
+
+    tabela = Table(dados_tabela, colWidths=[130, 200, 200])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey)
+    ]))
+    elementos.append(tabela)
+    elementos.append(Spacer(1, 15))
+
+    # 4. Parecer Técnico / Apuração de Anomalias
+    elementos.append(Paragraph("<b>Parecer Técnico / Apuração de Anomalias:</b>", style_bold))
+    elementos.append(Spacer(1, 6))
+
+    # Se passamos a minuta da tela, imprimimos ela no PDF para manter a paridade
+    if texto_minuta_tela:
+        linhas = texto_minuta_tela.split("\n")
+        for linha in linhas:
+            if linha.strip():
+                elementos.append(Paragraph(linha, style_corpo))
+                elementos.append(Spacer(1, 4))
+    else:
+        lista_erros = list(divergencias) if divergencias else []
+        if certidao_vencida and not any("VENCIDA" in str(e).upper() for e in lista_erros):
+            lista_erros.append(f"Certidão VENCIDA (Validade: {dados_certidao.get('validade', 'N/A')}).")
+
+        if lista_erros:
+            elementos.append(Paragraph("Foram identificadas as seguintes inconformidades durante a validação:", style_corpo))
+            elementos.append(Spacer(1, 5))
+            for erro in lista_erros:
+                elementos.append(Paragraph(f"• {erro}", style_corpo))
+                elementos.append(Spacer(1, 3))
+        else:
+            elementos.append(Paragraph("Certifico que não foram identificadas divergências cadastrais. O documento cumpre com os requisitos regulamentares.", style_corpo))
+
+    elementos.append(Spacer(1, 30))
+
+    # 5. Assinatura Rodapé
+    elementos.append(Paragraph("____________________________________________________", style_sub))
+    elementos.append(Paragraph("Validador Automatizado de Documentos", style_sub))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer
+
+
+# ==============================================================================
+# INTERFACE STREAMLIT
+# ==============================================================================
 st.set_page_config(page_title="Sistema de Validação de Documentos", page_icon="📄", layout="wide")
+
+# --- ESTILIZAÇÃO VISUAL CORPORATIVA ---
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #FFFFFF;
+        color: #0F172A;
+    }
+
+    h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        background-color: #1E3A8A !important;
+        color: #FFFFFF !important;
+        padding: 6px 14px !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .stButton > button, 
+    .stButton > button:hover, 
+    .stButton > button:focus, 
+    .stButton > button:active,
+    .stButton > button:focus:not(:focus-visible) {
+        background-color: #1E3A8A !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+    }
+
+    .stTextInput > div > div > input {
+        background-color: #F1F5F9;
+        color: #0F172A;
+        border-radius: 6px;
+    }
+
+    [data-testid="stFileUploadDropzone"] {
+        background-color: #F8FAFC;
+        border: 1px dashed #CBD5E1;
+    }
+
+    .stMarkdown p, label, .stSelectbox label {
+        color: #0F172A !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 if "reset_contador" not in st.session_state:
     st.session_state["reset_contador"] = 0
@@ -24,7 +182,7 @@ col_titulo, col_botao = st.columns([0.85, 0.15])
 with col_titulo:
     st.title("📄 Sistema de Validação de Documentos")
 with col_botao:
-    st.write("##") 
+    st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
     if st.button("🔙 Voltar", use_container_width=True):
         st.session_state["reset_contador"] += 1
         st.rerun()
@@ -66,18 +224,38 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
             try:
                 pedido_bytes = pedido_file.read()
                 certidao_bytes = certidao_file.read()
-                
+
+                # 1. Extração do texto
                 texto_pedido = extrair_texto(pedido_bytes)
                 texto_certidao = extrair_texto(certidao_bytes)
-                
+
+                # 2. Identificação das palavras-chave
+                texto_ped_upper = texto_pedido.upper()
+                texto_cert_upper = texto_certidao.upper()
+
+                termos_certidao = ["CERTIDÃO", "CERTIDAO", "CERTIFICADO", "REGULARIDADE", "CONSELHO REGIONAL", "CRF", "CRO", "CRM", "CRBM"]
+                termos_pedido = ["PEDIDO", "REQUERIMENTO", "SOLICITAÇÃO", "SOLICITACAO", "DECLARAÇÃO", "FORMULÁRIO", "VIGILÂNCIA SANITÁRIA"]
+
+                pedido_eh_certidao = any(termo in texto_ped_upper for termo in termos_certidao) and not any(termo in texto_ped_upper for termo in termos_pedido)
+                certidao_eh_pedido = any(termo in texto_cert_upper for termo in termos_pedido) and not any(termo in texto_cert_upper for termo in termos_certidao)
+
+                # 3. Bloqueio Imediato
+                if pedido_eh_certidao or certidao_eh_pedido:
+                    st.error(
+                        "⛔ **DOCUMENTOS INVERTIDOS OU INCORRETOS DETECTADOS!**\n\n"
+                        "• O arquivo anexado em **Pedido** parece ser uma Certidão.\n"
+                        "• O arquivo anexado em **Certidão CR** parece ser um Pedido.\n\n"
+                        "Por favor, remova os arquivos e faça o upload nos campos corretos para prosseguir."
+                    )
+                    st.stop()
+
                 resultado_comparacao = comparar(texto_pedido, texto_certidao)
                 
-                texto_certidao_alta = texto_certidao.upper()
-                if "CRM" in texto_certidao_alta or "MEDICINA" in texto_certidao_alta:
+                if "CRM" in texto_cert_upper or "MEDICINA" in texto_cert_upper:
                     conselho_detectado = "CRM"
-                elif "CRO" in texto_certidao_alta or "ODONTOLOGIA" in texto_certidao_alta:
+                elif "CRO" in texto_cert_upper or "ODONTOLOGIA" in texto_cert_upper:
                     conselho_detectado = "CRO"
-                elif "CRBM" in texto_certidao_alta or "BIOMEDICINA" in texto_certidao_alta:
+                elif "CRBM" in texto_cert_upper or "BIOMEDICINA" in texto_cert_upper:
                     conselho_detectado = "CRBM"
                 else:
                     conselho_detectado = "CRF"
@@ -99,31 +277,28 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                     status_conselho = asyncio.run(consultar_conselho_com_captcha("LINK_CRM", "input", "#res", registro))
                     
                 elif conselho_detectado == "CRO":
-                    pedido_dados_temp = {"cnpj": "Não encontrado", "rt": "Não encontrado", "cnae": "Não encontrado", "data": "Não encontrada"}
-                    certidao_dados_temp = {"cnpj": "Não encontrado", "rt": "Não encontrado", "cnae": "Não encontrado", "validade": "Não encontrada"}
+                    pedido_dados_temp = {"cnpj": "Não encontrado", "rt": "Não encontrado", "data": "Não encontrada"}
+                    certidao_dados_temp = {"cnpj": "Não encontrado", "rt": "Não encontrado", "validade": "Não encontrada"}
                     
-                    # Extração Pedido CRO
                     nome_rt_pedido = "Não encontrado"
-                    texto_ped_upper = texto_pedido.upper()
-                    rt_ped_match = re.search(r'(?:RESPONSÁVEL TÉCNICO|RT)[:\s]+([A-ZÁÉÍÓÚÇ\s]{10,60})', texto_ped_upper)
-                    if rt_ped_match:
-                        nome_rt_pedido = rt_ped_match.group(1).strip()
-                    pedido_dados_temp["rt"] = nome_rt_pedido
+                    rt_ped_match = re.search(
+                        r'(?:RESPONSÁVEL\s+TÉCNICO|RT)[:\s\n]+([A-ZÁÉÍÓÚÇ\s]{10,60})', 
+                        texto_ped_upper, 
+                        re.DOTALL
+                    )
                     
-                    cnaes_ped = re.findall(r'\b\d{7}\b', texto_pedido)
-                    if cnaes_ped:
-                        pedido_dados_temp["cnae"] = ", ".join(cnaes_ped)
-
+                    if rt_ped_match:
+                        nome_rt_pedido = " ".join(rt_ped_match.group(1).split())
+                        
+                    pedido_dados_temp["rt"] = nome_rt_pedido
                     cnpj_ped_match = re.search(r'\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b|\b\d{14}\b', texto_pedido)
                     if cnpj_ped_match:
                         cnpj_cru = cnpj_ped_match.group(0).replace(".", "").replace("/", "").replace("-", "")
                         pedido_dados_temp["cnpj"] = f"{cnpj_cru[:2]}.{cnpj_cru[2:5]}.{cnpj_cru[5:8]}/{cnpj_cru[8:12]}-{cnpj_cru[12:]}"
-
                     data_ab_match = re.search(r'(?:ABERTURA|DATA)[:\s]*(\d{2}/\d{2}/\d{4})', texto_ped_upper)
                     if data_ab_match:
                         pedido_dados_temp["data"] = data_ab_match.group(1)
 
-                    # Extração Certidão CRO
                     cnpj_cert_match = re.search(r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b', texto_certidao)
                     certidao_dados_temp["cnpj"] = cnpj_cert_match.group(0) if cnpj_cert_match else "Não encontrado"
                     
@@ -141,8 +316,6 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                         certidao_dados_temp["rt"] = nome_rt_pedido
                     else:
                         certidao_dados_temp["rt"] = "Não encontrado"
-
-                    certidao_dados_temp["cnae"] = "Atividades Odontológicas (Regular)"
 
                     erros = []
                     if pedido_dados_temp["cnpj"] != certidao_dados_temp["cnpj"]: erros.append("CNPJs divergem.")
@@ -164,16 +337,14 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                 st.success("🎉 Processamento concluído!")
                 st.session_state["sequencial_protocolo"] += 1
                 
-                # --- CORE: MAPEAMENTO E BUSCA DAS VARIÁVEIS DE FORMA SEGURA ---
+                # --- CORE: MAPEAMENTO E BUSCA DAS VARIÁVEIS ---
                 res_pedido = resultado_comparacao.get("dados_pedido", {}) if isinstance(resultado_comparacao, dict) else {}
                 res_certidao = resultado_comparacao.get("dados_certidao", {}) if isinstance(resultado_comparacao, dict) else {}
                 
-                # Fallback caso o dicionário geral não tenha os dados mas o fluxo do comparador padrão sim
                 if not res_pedido and 'pedido_dados' in resultado_comparacao: res_pedido = resultado_comparacao['pedido_dados']
                 if not res_certidao and 'certidao_dados' in resultado_comparacao: res_certidao = resultado_comparacao['certidao_dados']
                 
                 # --- VERIFICAÇÃO DE VALIDADE DA CERTIDÃO ---
-                from datetime import datetime
                 certidao_vencida = False
                 data_validade_str = res_certidao.get("validade", "Não encontrada")
                 
@@ -204,37 +375,51 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                     st.error("❌ Divergência encontrada nos dados do documento!")
                 
                 st.divider()
+
+                # --- BUSCA FLEXÍVEL DE RT ---
+                rt_pedido_limpo = res_pedido.get("rt", "Não encontrado").strip().upper()
                 
-                # --- TABELA COMPARATIVA TOTALMENTE CORRIGIDA E LIMPA ---
+                if rt_pedido_limpo != "NÃO ENCONTRADO" and rt_pedido_limpo in texto_cert_upper:
+                    res_certidao["rt"] = rt_pedido_limpo
+                elif not res_certidao.get("rt"):
+                    res_certidao["rt"] = "Não encontrado"
+
+                # --- FORMATAÇÃO VISUAL DOS CNPJs ---
+                cnpj_p_raw = re.sub(r'\D', '', str(res_pedido.get("cnpj", "")))
+                if len(cnpj_p_raw) == 14:
+                    res_pedido["cnpj"] = f"{cnpj_p_raw[:2]}.{cnpj_p_raw[2:5]}.{cnpj_p_raw[5:8]}/{cnpj_p_raw[8:12]}-{cnpj_p_raw[12:]}"
+
+                cnpj_c_raw = re.sub(r'\D', '', str(res_certidao.get("cnpj", "")))
+                if len(cnpj_c_raw) == 14:
+                    res_certidao["cnpj"] = f"{cnpj_c_raw[:2]}.{cnpj_c_raw[2:5]}.{cnpj_c_raw[5:8]}/{cnpj_c_raw[8:12]}-{cnpj_c_raw[12:]}"
+                    
+                # --- TABELA COMPARATIVA ---
                 st.subheader("📊 Tabela Comparativa de Detalhes")
-                
+
                 dados_tabela = {
                     "Dado Comparado": [
-                        "🏢 CNPJ", 
-                        "👨‍⚕️ Responsável Técnico (RT)", 
-                        "🔢 CNAE", 
+                        "🏢 CNPJ",
+                        "👨‍⚕️ Responsável Técnico (RT)",
                         "📅 Dados Importantes"
                     ],
                     "No Pedido": [
-                        res_pedido.get("cnpj", "Não encontrado"), 
-                        res_pedido.get("rt", "Não encontrado"), 
-                        res_pedido.get("cnae", "Não encontrado"), 
+                        res_pedido.get("cnpj", "Não encontrado"),
+                        res_pedido.get("rt", "Não encontrado"),
                         f"Abertura: {res_pedido.get('data', 'Não encontrada')}"
                     ],
                     "Na Certidão": [
-                        res_certidao.get("cnpj", "Não encontrado"), 
-                        res_certidao.get("rt", "Não encontrado"), 
-                        res_certidao.get("cnae", "Não encontrado"), 
+                        res_certidao.get("cnpj", "Não encontrado"),
+                        res_certidao.get("rt", "Não encontrado"),
                         f"Validade: {data_validade_str}"
                     ]
                 }
 
                 df_final = pd.DataFrame(dados_tabela)
                 st.dataframe(df_final, use_container_width=True, hide_index=True)
-                
+
                 st.divider()
                 
-                # --- EXIBIÇÃO DA AUTENTICIDADE E LINK (AJUSTADO PARA ERROS) ---
+                # --- EXIBIÇÃO DA AUTENTICIDADE E LINK ---
                 st.subheader(f"🌐 Autenticidade no {conselho_detectado}")
                 
                 if certidao_vencida:
@@ -251,11 +436,41 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                         link_direto_cro = f"https://cro-go.implanta.net.br/servicosOnline/Publico/ValidarDocumentos/?txtChave={chave}"
                         st.link_button("👉 Abrir Portal do CRO com a Chave", link_direto_cro)
 
-                # --- GERAÇÃO DA MINUTA AUTOMÁTICA CORRIGIDA ---
+                # --- RECALCULAR ERROS ---
+                erros_atualizados = []
+                
+                def limpar_cnpj(cnpj_raw):
+                    if not cnpj_raw or cnpj_raw == "Não encontrado":
+                        return ""
+                    return re.sub(r'\D', '', str(cnpj_raw))
+
+                cnpj_ped_limpo = limpar_cnpj(res_pedido.get("cnpj"))
+                cnpj_cert_limpo = limpar_cnpj(res_certidao.get("cnpj"))
+
+                if not cnpj_ped_limpo or not cnpj_cert_limpo:
+                    erros_atualizados.append("CNPJ não encontrado em um dos documentos.")
+                elif cnpj_ped_limpo != cnpj_cert_limpo:
+                    erros_atualizados.append(f"CNPJs divergem ({res_pedido.get('cnpj')} vs {res_certidao.get('cnpj')}).")
+
+                rt_ped = res_pedido.get("rt", "Não encontrado")
+                rt_cert = res_certidao.get("rt", "Não encontrado")
+                if rt_ped == "Não encontrado" or rt_cert == "Não encontrado":
+                    erros_atualizados.append(f"O Responsável Técnico do pedido ({rt_ped}) não foi localizado na certidão do conselho.")
+
+                resultado_comparacao["erros"] = erros_atualizados
+                resultado_comparacao["compativel"] = len(erros_atualizados) == 0
+
+                # --- GERAÇÃO DA MINUTA AUTOMÁTICA ---
                 st.divider()
                 st.subheader("📝 Minuta do Parecer Técnico")
 
-                if resultado_comparacao.get("compativel", False) and not certidao_vencida and autenticidade_confirmada:
+                status_compativel_final = (
+                    resultado_comparacao.get("compativel", False) 
+                    and not certidao_vencida 
+                    and autenticidade_confirmada
+                )
+
+                if status_compativel_final:
                     texto_minuta = (
                         f"PARECER TÉCNICO - DEFERIDO\n\n"
                         f"Constatada a conformidade integral entre os dados do pedido e a Certidão de Regularidade "
@@ -271,15 +486,34 @@ if st.button("🚀 Validar Documentos", use_container_width=True):
                         f"O processo deve ser encaminhado para validação manual ou nova tentativa posterior."
                     )
                 else:
-                    motivo = "Certidão VENCIDA" if certidao_vencida else ", ".join(resultado_comparacao.get("erros", ["Divergência de dados técnicos"]))
+                    motivos_str = "Certidão VENCIDA" if certidao_vencida else ", ".join(resultado_comparacao.get("erros", ["Divergência de dados técnicos"]))
                     texto_minuta = (
                         f"PARECER TÉCNICO - INDEFERIDO\n\n"
                         f"Identificada inconformidade no processo de validação documental. Durante a análise automatizada "
-                        f"da certidão ({conselho_detectado}), foi constatado o seguinte impedimento: {motivo}.\n"
+                        f"da certidão ({conselho_detectado}), foi constatado o seguinte impedimento: {motivos_str}.\n"
                         f"Diante dos fatos, emitimos parecer pelo INDEFERIMENTO do pedido."
                     )
 
-                st.text_area(label="Cópia rápida do Parecer:", value=texto_minuta, height=180) 
+                st.text_area(label="Cópia rápida do Parecer:", value=texto_minuta, height=180)
+
+                # --- GERAR PDF E BOTAO DE DOWNLOAD ---
+                pdf_bytes = gerar_pdf_parecer(
+                    protocolo=protocolo_final,
+                    status_compativel=status_compativel_final,
+                    divergencias=resultado_comparacao.get("erros", []),
+                    dados_pedido=res_pedido,
+                    dados_certidao=res_certidao,
+                    texto_minuta_tela=texto_minuta,
+                    certidao_vencida=certidao_vencida
+                )
+
+                st.download_button(
+                    label="📥 Baixar Parecer Técnico em PDF (Para Fiscalização)",
+                    data=pdf_bytes,
+                    file_name=f"Parecer_Tecnico_{protocolo_final}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
             except Exception as e:
                 st.error(f"Erro no processamento: {e}")

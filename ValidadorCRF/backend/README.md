@@ -7,14 +7,14 @@ Este projeto foi desenvolvido como parte de um estudo prático de Ciência de Da
 ## 🚀 Funcionalidades Principais
 
 *   **📄 Extração Inteligente de PDFs:** Processamento e remoção de texto bruto de documentos (pedidos e certificados) utilizando engenharia de dados com a biblioteca `PyMuPDF (fitz)`.
-*   **📊 Cruzamento e Análise Algorítmica:** Módulo lógico embarcado que compara chaves estruturais (CNPJ, CNAE, Responsável Técnico e dados de vigilância) para identificar divergências ou fraudes em tempo real.
+*   **📊 Cruzamento e Análise Algorítmica:** Módulo lógico embarcado que compara chaves estruturais (CNPJ, Responsável Técnico e dados de vigilância) para identificar divergências ou fraudes em tempo real.
 *   **⏱️ Trava de Segurança Temporal (Validade):** Algoritmo integrado que valida a data de vencimento da certidão confrontando-a com a data atual do sistema. Certidões expiradas bloqueiam o processo imediatamente, forçando o parecer de indeferimento.
 *   **🤖 Roteamento Dinâmico de RPA:** Motor web baseado em `Playwright` que identifica automaticamente o conselho emissor a partir do texto do PDF e adota a estratégia de validação ideal:
     *   **Modo Silencioso (Headless):** Execução em segundo plano para consultas estruturadas sem desafios visuais (ex: CRF-GO via código hash de 32 caracteres).
     *   **Modo Interativo (Headful / Assistido):** Abertura da interface do navegador ou redirecionamento dinâmico via chaves de acesso estruturadas quando o portal externo exige resolução de CAPTCHA ou validação manual (CRM, CRO, CRBM).
 *   **🛡️ Tolerância a Falhas de Rede (Fallback Técnico):** Caso os portais dos conselhos apresentem instabilidade ou gerem quedas de conexão (*Timeouts* / `ERR_CONNECTION_TIMED_OUT`), o sistema intercepta o erro, preserva os dados analisados e altera o parecer para **Análise Pendente**, mitigando o risco de falsos positivos.
 *   **🎨 Dashboard Analítico (Streamlit):** Interface web reativa contendo tabelas comparativas limpas, alertas visuais de risco (vermelho, amarelo e verde) e controle sequencial de protocolos processados.
-
+**Exportação Oficial em PDF:** Gera um relatório formatado via `ReportLab` contendo o parecer, tabela comparativa e resultado do cruzamento pronto para a fiscalização.
 ---
 
 ## 🔧 Instalação e Configuração para o Grupo
@@ -45,7 +45,7 @@ Digite o comando abaixo para entrar na pasta onde estão os códigos e o arquivo
 Bash
 cd backend
 Passo 4: Instalação Automática do Ecossistema de Bibliotecas
-Para instalar todas as ferramentas necessárias (streamlit, pandas, pymupdf, playwright) de uma vez só, digite o comando abaixo e aperte Enter:
+Para instalar todas as ferramentas necessárias (streamlit, pandas, pymupdf, playwright,reportlab) de uma vez só, digite o comando abaixo e aperte Enter:
 
 Bash
 pip install -r requirements.txt
@@ -60,7 +60,11 @@ Certifique-se de que a venv está ativa (venv) e que você está dentro da pasta
 Bash
 streamlit run app.py
 Via Atalho (Produção)
-O projeto conta com um script automatizado de um clique (.bat) localizado na Área de Trabalho, encarregado de ativar o ambiente virtual e subir a aplicação no seu navegador padrão de forma transparente.
+O projeto conta com um script automatizado de um clique (.bat) localizado na Área de Trabalho, encarregado de ativar o ambiente virtual e subir a aplicação no seu navegador padrão de forma transparente. 
+
+
+
+---
 
 📂 Estrutura Arquitetural do Projeto
 Plaintext
@@ -72,14 +76,15 @@ ValidadorCRF/
     ├── comparador.py         # Módulo de Inteligência de Negócio: Regras de Cruzamento de Dados
     ├── validador_web.py      # Módulo de Automação RPA: Motores Playwright (Headless e Headful)
     └── requirements.txt      # Manifesto de dependências do ecossistema Python
-🛠️ Stack Tecnológica Utilizada
+
+🛠️  Tecnológica Utilizada
+
+- Linguagem:Python 
+Geração de PDFs:** ReportLab
 Streamlit: Construção de dashboards reativos e interface do usuário orientada a dados.
-
 Playwright: Automação de navegadores (RPA) de alta performance com suporte a fluxos assíncronos.
-
-PyMuPDF (Fitz): Analisador de alta velocidade para processamento de estruturas binárias de arquivos PDF.
-
-Pandas: Modelagem, estruturação e alinhamento das matrizes de dados para comparação na interface gráfica.
+Extração de Texto:** PyPDF2 / pdfplumber PyMuPDF (Fitz): Analisador de alta velocidade para processamento de estruturas binárias de arquivos PDF.
+Pandas: Processamento de Dados , Modelagem, estruturação e alinhamento das matrizes de dados para comparação na interface gráfica.
 
 
 ---

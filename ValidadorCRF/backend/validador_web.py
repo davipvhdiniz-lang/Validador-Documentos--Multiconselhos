@@ -6,43 +6,67 @@ URL_CRF = "https://crfgo-emcasa.cisantec.com.br/crf-em-casa/consulta/certidao/in
 async def consultar_certidao_no_conselho(codigo_autenticacao: str) -> dict:
     """
     Acessa o portal do CRF-GO, insere o código de autenticação e valida
-    se a certidão é legítima e ativa no conselho.
+    se a certidão é legítima e ativa no conselho. Realiza até 3 tentativas
+    com intervalo de 10 segundos entre elas em caso de erro de conexão/timeout.
     """
-    async with async_playwright() as p:
-        # Abre o navegador em segundo plano (headless=True)
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        
-        try:
-            # 1. Acessa a página de consulta
-            await page.goto(URL_CRF, timeout=30000)
-            
-            # 2. Localiza o campo de input para o código de autenticação
-            input_selector = "input[type='text']" 
-            await page.wait_for_selector(input_selector)
-            
-            # Preenche o código extraído da certidão
-            await page.fill(input_selector, codigo_autenticacao)
-            
-            # 3. Clica no botão de Consultar / Validar
-            botao_consultar = page.locator("button:has-text('Consultar'), input[type='submit'], button[id*='btn']")
-            await botao_consultar.first.click()
-            
-            # Aguarda a resposta do site
-            await page.wait_for_load_state("networkidle")
-            
-            # Obtém o conteúdo da página e passa para minúsculo para facilitar a busca
-            conteudo_pagina = await page.content()
-            conteudo_baixo = conteudo_pagina.lower()
+    tentativas_maximas = 3
+    intervalo_segundos = 10
 
-            # Lista de termos que indicam que a certidão é inválida ou não existe
-            se_invalida = ["inexistente", "não encontrada", "inválido", "não conferem", "incorreto"]
-            for termo in se_invalida:
-                if termo in conteudo_baixo:
-                    return {
-                        "autentica": False,
-                        "mensagem": "A certidão não foi encontrada ou o código de autenticação é inválido perante o conselho."
-                    }
+    for tentativa in range(1, tentativas_maximas + 1):
+        try:
+            async with async_playwright() as p:
+                # Abre o navegador em segundo plano (headless=True)
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                # 1. Acessa a página de consulta
+                await page.goto(URL_CRF, timeout=30000)
+
+                # 2. Localiza o campo de input para o código de autenticação
+                input_selector = "input[type='text']"
+                await page.wait_for_selector(input_selector)
+
+                # Preenche o código extraído da certidão
+                await page.fill(input_selector, codigo_autenticacao)
+
+                # 3. Clica no botão de Consultar / Validar
+                botao_consultar = page.locator("button:has-text('Consultar'), input[type='submit'], button[id*='btn']")
+                await botao_consultar.first.click()
+
+                # Aguarda a resposta do site
+                await page.wait_for_load_state("networkidle")
+
+                # Obtém o conteúdo da página e passa para minúsculo para facilitar a busca
+                conteudo_pagina = await page.content()
+                conteudo_baixo = conteudo_pagina.lower()
+
+                await browser.close()
+
+                # Lista de termos que indicam que a certidão é inválida ou não existe
+                se_invalida = ["inexistente", "não encontrada", "inválido", "não conferem", "incorreto"]
+                for termo in se_invalida:
+                    if termo in conteudo_baixo:
+                        return {
+                            "autentica": False,
+                            "mensagem": "A certidão não foi encontrada ou o código de autenticação é inválido perante o conselho."
+                        }
+
+                # Se chegou até aqui sem erros nem termos de recusa, a validação teve sucesso
+                return {
+                    "autentica": True,
+                    "mensagem": "Certidão validada e autenticada com sucesso no portal do CRF!"
+                }
+
+        except Exception as e:
+            # Se atingiu a 3ª tentativa e continuou falhando, retorna o erro de conexão definitivo
+            if tentativa == tentativas_maximas:
+                return {
+                    "autentica": False,
+                    "mensagem": f"ERR_CONNECTION: Falha ao conectar ao portal do CRF após {tentativas_maximas} tentativas. Erro: {str(e)}"
+                }
+
+            # Caso contrário, aguarda 10 segundos antes de ir para a próxima tentativa
+            await asyncio.sleep(intervalo_segundos)
             
             # --- NOVA VERIFICAÇÃO: DETECTA O ALERTA DE CERTIDÃO MAIS ATUALIZADA ---
             texto_alerta = "possui outra certidão de regularidade mais atualizada"
