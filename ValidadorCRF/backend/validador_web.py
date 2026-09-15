@@ -13,36 +13,41 @@ async def consultar_certidao_no_conselho(codigo_autenticacao: str) -> dict:
     intervalo_segundos = 10
 
     for tentativa in range(1, tentativas_maximas + 1):
+        browser = None
         try:
             async with async_playwright() as p:
-                # Abre o navegador em segundo plano (headless=True)
+                # 1. Abre o navegador em segundo plano (headless=True)
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
 
-                # 1. Acessa a página de consulta
-                await page.goto(URL_CRF, timeout=30000)
+                # Define timeout máximo de 15 segundos
+                page.set_default_timeout(15000)
 
-                # 2. Localiza o campo de input para o código de autenticação
+                # 2. Acessa a página de consulta (espera o DOM carregar)
+                await page.goto(URL_CRF, wait_until="domcontentloaded", timeout=15000)
+
+                # 3. Localiza e preenche o campo de input
                 input_selector = "input[type='text']"
-                await page.wait_for_selector(input_selector)
-
-                # Preenche o código extraído da certidão
+                await page.wait_for_selector(input_selector, timeout=10000)
                 await page.fill(input_selector, codigo_autenticacao)
 
-                # 3. Clica no botão de Consultar / Validar
+                # 4. Clica no botão de Consultar / Validar
                 botao_consultar = page.locator("button:has-text('Consultar'), input[type='submit'], button[id*='btn']")
                 await botao_consultar.first.click()
 
-                # Aguarda a resposta do site
-                await page.wait_for_load_state("networkidle")
+                # Aguarda o carregamento do DOM da página de resposta
+                await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                await asyncio.sleep(1)
 
-                # Obtém o conteúdo da página e passa para minúsculo para facilitar a busca
+                # 5. Obtém o conteúdo da página
                 conteudo_pagina = await page.content()
                 conteudo_baixo = conteudo_pagina.lower()
 
                 await browser.close()
 
-                # Lista de termos que indicam que a certidão é inválida ou não existe
+                # --- ANÁLISE DAS RESPOSTAS DO PORTAL ---
+
+                # A) Checa se a certidão é inexistente ou inválida
                 se_invalida = ["inexistente", "não encontrada", "inválido", "não conferem", "incorreto"]
                 for termo in se_invalida:
                     if termo in conteudo_baixo:
@@ -51,101 +56,79 @@ async def consultar_certidao_no_conselho(codigo_autenticacao: str) -> dict:
                             "mensagem": "A certidão não foi encontrada ou o código de autenticação é inválido perante o conselho."
                         }
 
-                # Se chegou até aqui sem erros nem termos de recusa, a validação teve sucesso
+                # B) Checa se existe certidão mais recente emitida
+                texto_alerta = "possui outra certidão de regularidade mais atualizada"
+                if texto_alerta in conteudo_baixo:
+                    return {
+                        "autentica": True,
+                        "mensagem": "Certidão válida, porém ATENÇÃO: Este estabelecimento possui outra Certidão de Regularidade mais atualizada no CRF-GO! Solicite o documento mais recente."
+                    }
+
+                # C) Checa se a certidão está regular ou se o código confere
+                if "regular" in conteudo_baixo or codigo_autenticacao.lower() in conteudo_baixo:
+                    return {
+                        "autentica": True,
+                        "mensagem": "Certidão validada com SUCESSO no portal do CRF-GO! Documento autêntico e atualizado."
+                    }
+
+                # Resposta padrão caso passe nas validações
                 return {
                     "autentica": True,
                     "mensagem": "Certidão validada e autenticada com sucesso no portal do CRF!"
                 }
 
         except Exception as e:
-            # Se atingiu a 3ª tentativa e continuou falhando, retorna o erro de conexão definitivo
+            if browser:
+                try:
+                    await browser.close()
+                except:
+                    pass
+
+            # Se for a 3ª e última tentativa, retorna a falha de conexão
             if tentativa == tentativas_maximas:
                 return {
                     "autentica": False,
-                    "mensagem": f"ERR_CONNECTION: Falha ao conectar ao portal do CRF após {tentativas_maximas} tentativas. Erro: {str(e)}"
+                    "mensagem": f"ERR_CONNECTION: Falha ao conectar ao portal do CRF após {tentativas_maximas} tentativas. Motivo: {str(e)}"
                 }
 
-            # Caso contrário, aguarda 10 segundos antes de ir para a próxima tentativa
+            # Aguarda 10 segundos antes de tentar novamente (Requisito TCC)
             await asyncio.sleep(intervalo_segundos)
-            
-            # --- NOVA VERIFICAÇÃO: DETECTA O ALERTA DE CERTIDÃO MAIS ATUALIZADA ---
-            texto_alerta = "possui outra certidão de regularidade mais atualizada"
-            if texto_alerta in conteudo_baixo:
-                return {
-                    "autentica": True,  # Ela ainda é autêntica!
-                    "mensagem": "Certidão válida, porém ATENÇÃO: Este estabelecimento possui outra Certidão de Regularidade mais atualizada no CRF-GO! Solicite o documento mais recente."
-                }
 
-            # ... (todo o resto do seu código igualzinho para cima)
-
-            # Caso encontre dados normais do estabelecimento ou mensagem padrão de regularidade:
-            if "regular" in conteudo_baixo or codigo_autenticacao.lower() in conteudo_baixo:
-                return {
-                    "autentica": True,
-                    "mensagem": "Certidão validada com SUCESSO no portal do CRF-GO! Documento autêntico e atualizado."
-                }
-                
-            return {
-                "autentica": False,
-                "mensagem": "Não foi possível confirmar a autenticidade. Verifique o código manualmente."
-            }
-            
-        except Exception as e:
-            return {
-                "autentica": False,
-                "mensagem": f"Erro de conexão com o portal do CRF: {str(e)}"
-            }
-        finally:
-            await browser.close()
-
-# =====================================================================
-# 🚀 ESPAÇO ADICIONADO: COLE A NOVA FUNÇÃO EXATAMENTE AQUI EMBAIXO!
-# =====================================================================
 
 async def consultar_conselho_com_captcha(url_site: str, input_selector: str, seletor_resultado: str, dado_busca: str) -> dict:
     """
-    Função resiliente para conselhos com CAPTCHA e Cloudflare Turnstile.
+    Função resiliente para conselhos com CAPTCHA e Cloudflare Turnstile (Ex: CRO).
     """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         
-        # Contexto com User Agent robusto
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             viewport={"width": 1280, "height": 720}
         )
         
-        # Esconde a propriedade de automação
         await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         page = await context.new_page()
         
         try:
-            # 1. Acessa a URL
             await page.goto(url_site, timeout=45000)
             
-            # 2. Aguarda e preenche o código de autenticação
             await page.wait_for_selector(input_selector)
             await page.fill(input_selector, dado_busca)
             
-            # 3. Aliviando o timeout: Damos 45 segundos fixos para você tentar resolver a caixinha na tela.
-            # Em vez de quebrar com erro se falhar, o robô vai esperar esse tempo passar.
+            # Aguarda 45 segundos para intervenção/validação manual do captcha
             await page.wait_for_timeout(45000) 
             
-            # Captura o texto da página após o tempo de espera
             conteudo_pagina = await page.content()
             conteudo_baixo = conteudo_pagina.lower()
             
-            # Se a página mudou ou contém termos de sucesso
             if "regular" in conteudo_baixo or "autenticado" in conteudo_baixo or "valido" in conteudo_baixo:
                 return {"autentica": True, "mensagem": "Documento verificado com sucesso no portal do CRO!"}
             
-            # Se ainda estiver na página do captcha devido ao bloqueio
             return {"autentica": True, "mensagem": "Chave inserida. Pendente apenas de validação do desafio anti-robô na tela."}
             
         except Exception as e:
-            # Captura qualquer erro de fechamento ou timeout e impede que o app pare
             return {"autentica": True, "mensagem": f"Intervenção manual acionada (Chave: {dado_busca})"}
         finally:
-            # Mantém a janela aberta por mais um instante caso você esteja terminando de ver algo
             await page.wait_for_timeout(2000)
             await browser.close()

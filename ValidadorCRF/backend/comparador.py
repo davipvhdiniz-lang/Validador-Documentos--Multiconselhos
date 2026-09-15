@@ -42,7 +42,7 @@ def nomes_sao_iguais(nome1: str, nome2: str) -> bool:
     """
     if not nome1 or not nome2 or nome1 == "Não encontrado" or nome2 == "Não encontrado":
         return False
-        
+    
     # Etapa 1: Comparação Normal
     n1_padrao = normalizar_texto(nome1, remover_espacos=False)
     n2_padrao = normalizar_texto(nome2, remover_espacos=False)
@@ -105,7 +105,7 @@ def extrair_dados_certidao(texto):
     if bloco_rt:
         texto_bloco = bloco_rt.group(0)
         # Extrai os nomes associados ao padrão do CRF (entre o código/função e diretoria/cargo)
-        linhas_rt = re.findall(r"(?:F\s+\d+|CRF\s*\d+|RT[:\s]+)(.*?)(?=\s+DIRETOR|\s+ASSISTENTE|\s+SUBSTITUTO|\n|$)", texto_bloco, re.I)
+        linhas_rt = re.findall(r"(?:F\s+\d+|CRF\s*\d+|RT[:\s]+)\s*([A-Z\s]+?)(?=\s+(?:DIRETOR|ASSISTENTE|SUBSTITUTO)|\n|$)", texto_bloco)
         
         for nome in linhas_rt:
             nome_limpo = nome.strip()
